@@ -1,0 +1,27 @@
+
+---testovi---
+
+python main.py --type authentication --authentication-url http://127.0.0.1:5001 --jwt-secret JWTSecretDevKey --roles-field role --owner-role owner --customer-role customer --courier-role courier
+python main.py --type all --authentication-url http://127.0.0.1:5001 --jwt-secret JWTSecretDevKey --roles-field role --owner-role owner --customer-role customer --courier-role courier --with-authentication --owner-url http://127.0.0.1:5002 --customer-url http://127.0.0.1:5003 --courier-url http://127.0.0.1:5004 --with-blockchain --provider-url http://127.0.0.1:8545 --customer-keys-path ./keys.json --customer-passphrase iep_project --owner-private-key 0xc74fafc41ea681fc061f43e965cc0be7a3aa073f63873b3354f273f7ca4d3049 --courier-private-key 0x50c0c099835589b71711d914021f5e7accb17fa5695177c2cea11e0ad4ad2db8
+
+---dockerfiles---
+
+docker build -t courier:latest -f courier.dockerfile .
+docker build -t authentication:latest -f authentication.dockerfile .
+docker build -t customer:latest -f customer.dockerfile .
+docker build -t authenticationdbmigration:latest -f authenticationDBMigration.dockerfile .
+docker build -t shopdbmigration:latest -f shopDBMigration.dockerfile .
+docker build -t owner:latest -f owner.dockerfile .
+cd application
+cd spark
+docker build -t spark:latest -f spark.dockerfile .
+
+
+---containers---
+
+docker-compose up
+
+
+---generating keys---
+
+json.dumps(Account.encrypt('0x67df09ab67497c4dea8c0f3d230b44f3c361cca412cbe4d110ee0d9e0d9a9ec6', 'iep_project'))

@@ -1,0 +1,163 @@
+version: '3'
+
+services:
+  adminer:
+    image: adminer
+    ports:
+      - 8083:8080
+    networks:
+      - adminerAuthenticationNetwork
+      - adminerShopNetwork
+  authenticationDB:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    ports:
+      - 3307:3306
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 10
+    volumes:
+    - db_authentication:/var/lib/mysql
+    networks:
+      - authenticationDBNetwork
+      - adminerAuthenticationNetwork
+  authenticationDBMigration:
+    image: authenticationdbmigration
+    environment:
+      - DATABASE_URL=authentication
+    depends_on:
+      authenticationDB:
+        condition: service_healthy
+    networks:
+      - authenticationDBNetwork
+  authentication:
+    image: authentication
+    environment:
+      - DATABASE_URL=authentication
+    depends_on:
+      - authenticationDBMigration
+    ports:
+    - 5001:5001
+    networks:
+      - authenticationDBNetwork
+  shopDB:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    ports:
+      - 3308:3306
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 10
+    volumes:
+    - db_shop:/var/lib/mysql
+    networks:
+      - shopDBNetwork
+      - customerNetwork
+      - courierNetwork
+      - ownerNetwork
+      - adminerShopNetwork
+      - blockchainNetwork
+
+  shopDBMigration:
+    image: shopdbmigration
+    environment:
+      - DATABASE_URL=shop
+    depends_on:
+      shopDB:
+        condition: service_healthy
+    networks:
+      - shopDBNetwork
+  owner:
+    image: owner
+    environment:
+      - DATABASE_URL=productDB
+      - SPARK_MASTER=spark-master:7077
+    depends_on: [shopDBMigration, spark]
+    ports:
+    - 5002:5002
+    networks:
+      - ownerNetwork
+      - blockchainNetwork
+
+  customer:
+    image: customer
+    environment:
+      - DATABASE_URL=shop
+    depends_on: [shopDBMigration,blockchain]
+    ports:
+    - 5003:5003
+    networks:
+      - customerNetwork
+      - blockchainNetwork
+
+  courier:
+    image: courier
+    environment:
+      - DATABASE_URL=shop
+    depends_on: [shopDBMigration,blockchain]
+    ports:
+    - 5004:5004
+    networks:
+      - courierNetwork
+      - blockchainNetwork
+
+
+  spark-master:
+    image: bde2020/spark-master:3.3.0-hadoop3.3
+    container_name: spark-master
+    ports:
+      - 8080:8080
+      - 7077:7077
+    environment:
+      - INIT_DAEMON_STEP=setup_spark
+    networks:
+      - ownerNetwork
+
+  spark-worker:
+    image: bde2020/spark-worker:3.3.0-hadoop3.3
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    ports:
+      - 8081:8081
+    environment:
+      - SPARK_MASTER=spark-master:7077
+    networks:
+      - ownerNetwork
+
+
+  blockchain:
+    image: trufflesuite/ganache-cli:latest
+    ports:
+      - 8545:8545
+    networks:
+      - blockchainNetwork
+
+
+  spark:
+    image: spark
+    depends_on: [spark-master,spark-worker]
+    ports:
+      - 5000:5000
+    networks:
+      - ownerNetwork
+
+
+volumes:
+  db_authentication:
+  db_shop:
+
+networks:
+  authenticationDBNetwork:
+  shopDBNetwork:
+  ownerNetwork:
+  customerNetwork:
+  courierNetwork:
+  adminerAuthenticationNetwork:
+  adminerShopNetwork:
+  sparkNetwork:
+  blockchainNetwork:
